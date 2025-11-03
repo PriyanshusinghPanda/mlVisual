@@ -14,6 +14,10 @@ import {
   alpha,
   styled
 } from '@mui/material';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PauseIcon from '@mui/icons-material/Pause';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import * as d3 from 'd3';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   background: alpha(theme.palette.background.paper, 0.8),
@@ -22,10 +26,6 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
   borderRadius: theme.spacing(2),
 }));
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import * as d3 from 'd3';
 
 const KMeans = () => {
   const theme = useTheme();
