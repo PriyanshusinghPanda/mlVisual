@@ -1,8 +1,49 @@
-# Getting Started with Create React App
+# ML Model Visualizer
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An interactive web application for visualizing machine learning algorithms and models. Built with React, Material-UI, and D3.js.
 
-## Available Scripts
+## Features
+
+- Interactive visualization of various machine learning algorithms
+- Real-time parameter adjustment
+- Animated algorithm execution
+- Modern, responsive UI with dark theme
+- Educational tool for understanding ML concepts
+
+### Available Visualizations
+
+1. **K-Means Clustering**
+   - Adjust number of clusters (K)
+   - Control number of data points
+   - Animation speed control
+   - Real-time cluster formation visualization
+
+2. **DBSCAN Clustering**
+   - Adjust epsilon (ε) parameter
+   - Set minimum points threshold
+   - Visualize density-based clustering
+   - Interactive animation controls
+
+3. **Linear Regression**
+   - Generate random data points
+   - Adjust noise levels
+   - View regression line updates
+   - Real-time statistics
+
+4. **Model Architecture** (Coming Soon)
+   - Neural network visualization
+   - Interactive layer configuration
+   - Training process visualization
+
+## Technology Stack
+
+- React.js
+- Material-UI
+- D3.js
+- Framer Motion
+- React Router
+
+## Getting Started
 
 In the project directory, you can run:
 
