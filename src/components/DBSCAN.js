@@ -9,7 +9,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid,
   styled,
   useTheme,
   alpha
@@ -47,6 +46,11 @@ const DBSCAN = () => {
     neigh: [],
     phase: "initial"
   });
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [panelWidth, setPanelWidth] = useState(140);
+  const [isResizing, setIsResizing] = useState(false);
 
   // Helper function to calculate distance between two points
   const dist = (p1, p2) => {
@@ -261,14 +265,24 @@ const DBSCAN = () => {
 
   // D3 visualization setup
   useEffect(() => {
-    if (!data.length) return;
+    if (!data.length || !svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
+    const svgElement = svgRef.current;
+    const width = svgElement.clientWidth || 800;
+    const height = svgElement.clientHeight || 600;
+
+    if (width <= 0 || height <= 0) return;
+
+    const margin = { top: 20, right: 20, bottom: 40, left: 50 };
+    const chartWidth = width - margin.left - margin.right;
+    const chartHeight = height - margin.top - margin.bottom;
+
     const scale = {
-      x: d3.scaleLinear().domain([0, 800]).range([50, 750]),
-      y: d3.scaleLinear().domain([0, 400]).range([350, 50])
+      x: d3.scaleLinear().domain([0, 800]).range([margin.left, margin.left + chartWidth]),
+      y: d3.scaleLinear().domain([0, 400]).range([margin.top + chartHeight, margin.top])
     };
 
     // Add axes
@@ -276,12 +290,12 @@ const DBSCAN = () => {
     const yAxis = d3.axisLeft(scale.y).ticks(10);
 
     svg.append("g")
-      .attr("transform", "translate(0,350)")
+      .attr("transform", `translate(0,${margin.top + chartHeight})`)
       .style("color", theme.palette.text.secondary)
       .call(xAxis);
 
     svg.append("g")
-      .attr("transform", "translate(50,0)")
+      .attr("transform", `translate(${margin.left},0)`)
       .style("color", theme.palette.text.secondary)
       .call(yAxis);
 
@@ -381,197 +395,288 @@ const DBSCAN = () => {
     generateData();
   };
 
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setTransform(prev => ({
+      ...prev,
+      scale: Math.max(0.5, Math.min(5, prev.scale * delta))
+    }));
+  };
+
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+    setTransform(prev => ({
+      ...prev,
+      x: prev.x + deltaX,
+      y: prev.y + deltaY
+    }));
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const resetZoom = () => {
+    setTransform({ x: 0, y: 0, scale: 1 });
+  };
+
+  const handleResizeStart = () => {
+    setIsResizing(true);
+  };
+
+  const handleResizeMove = (e) => {
+    if (!isResizing) return;
+    const newWidth = Math.max(100, Math.min(400, e.clientX));
+    setPanelWidth(newWidth);
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+  };
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleResizeMove);
+        window.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing]);
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography 
-        variant="h4" 
-        gutterBottom 
-        sx={{ 
-          background: 'linear-gradient(45deg, #FF6B6B, #4ECDC4)',
-          backgroundClip: 'text',
-          WebkitBackgroundClip: 'text',
-          color: 'transparent',
-          fontWeight: 'bold'
+    <Box sx={{ 
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'row',
+      gap: 0
+    }}>
+      {/* Left Panel - Parameters */}
+      <Box sx={{ 
+        width: `${panelWidth}px`,
+        flexShrink: 0,
+        background: alpha(theme.palette.background.paper, 0.6),
+        backdropFilter: 'blur(10px)',
+        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        borderRadius: 0,
+        overflow: 'auto',
+        p: 1.5,
+        position: 'relative'
+      }}>
+        <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', mb: 1.5 }}>
+          Parameters
+        </Typography>
+        
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+            Epsilon: {params.epsilon}
+          </Typography>
+          <Slider
+            value={params.epsilon}
+            onChange={(_, value) => setParams({ ...params, epsilon: value })}
+            min={20}
+            max={100}
+            disabled={isRunning}
+            size="small"
+            sx={{ '& .MuiSlider-thumb': { width: 16, height: 16 } }}
+          />
+        </Box>
+
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+            Min Points: {params.minPoints}
+          </Typography>
+          <Slider
+            value={params.minPoints}
+            onChange={(_, value) => setParams({ ...params, minPoints: value })}
+            min={2}
+            max={10}
+            marks
+            disabled={isRunning}
+            size="small"
+            sx={{ '& .MuiSlider-thumb': { width: 16, height: 16 } }}
+          />
+        </Box>
+
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+            Points: {params.points}
+          </Typography>
+          <Slider
+            value={params.points}
+            onChange={(_, value) => setParams({ ...params, points: value })}
+            min={50}
+            max={500}
+            step={50}
+            disabled={isRunning}
+            size="small"
+            sx={{ '& .MuiSlider-thumb': { width: 16, height: 16 } }}
+          />
+        </Box>
+
+        <FormControl fullWidth sx={{ mb: 1.5 }}>
+          <InputLabel sx={{ fontSize: '0.75rem' }}>Speed</InputLabel>
+          <Select
+            value={params.speed}
+            onChange={(e) => setParams({ ...params, speed: e.target.value })}
+            label="Speed"
+            size="small"
+          >
+            <MenuItem value={0.5}>Slow</MenuItem>
+            <MenuItem value={1}>Normal</MenuItem>
+            <MenuItem value={2}>Fast</MenuItem>
+          </Select>
+        </FormControl>
+
+        <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5, flexDirection: 'column' }}>
+          <Button
+            variant="contained"
+            startIcon={isRunning ? <PauseIcon /> : <PlayArrowIcon />}
+            onClick={isRunning ? handlePause : handleStart}
+            fullWidth
+            size="small"
+            sx={{
+              background: 'linear-gradient(45deg, #4ECDC4, #2E9B94)',
+              fontSize: '0.7rem',
+              padding: '4px'
+            }}
+          >
+            {isRunning ? 'Pause' : 'Start'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<RestartAltIcon />}
+            onClick={handleReset}
+            fullWidth
+            size="small"
+            sx={{ fontSize: '0.7rem', padding: '4px' }}
+          >
+            Reset
+          </Button>
+        </Box>
+
+        <Box sx={{
+          p: 1,
+          borderRadius: 1,
+          bgcolor: alpha(theme.palette.primary.main, 0.1),
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+          mb: 1
+        }}>
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>Iteration</Typography>
+          <Typography sx={{ fontSize: '1.3rem', color: theme.palette.primary.main, fontWeight: 'bold' }}>
+            {iteration}
+          </Typography>
+        </Box>
+
+        <Box sx={{
+          p: 1,
+          borderRadius: 1,
+          bgcolor: alpha(theme.palette.success.main, 0.1),
+          border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`
+        }}>
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>Clusters</Typography>
+          <Typography sx={{ fontSize: '1.3rem', color: theme.palette.success.main, fontWeight: 'bold' }}>
+            {dbscanState.cluster}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Resizer Divider */}
+      <Box
+        onMouseDown={handleResizeStart}
+        sx={{
+          width: '4px',
+          cursor: 'col-resize',
+          backgroundColor: alpha(theme.palette.divider, 0.3),
+          '&:hover': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.5),
+          },
+          transition: isResizing ? 'none' : 'background-color 0.2s',
+          flexShrink: 0
         }}
+      />
+
+      {/* Right Panel - Visualization */}
+      <Box 
+        sx={{ 
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'relative',
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
-        DBSCAN Clustering Visualization
-      </Typography>
-      
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={3}>
-          <StyledPaper>
-            <Typography variant="h6" gutterBottom>Parameters</Typography>
-            
-            <Box sx={{ mb: 3 }}>
-              <Typography gutterBottom>
-                Epsilon (ε): {params.epsilon}
-                <Typography component="span" variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>
-                  - Neighborhood radius
-                </Typography>
-              </Typography>
-              <Slider
-                value={params.epsilon}
-                onChange={(_, value) => setParams({ ...params, epsilon: value })}
-                min={20}
-                max={100}
-                disabled={isRunning}
-                sx={{
-                  '& .MuiSlider-thumb': {
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.1)',
-                    },
-                  },
-                }}
-              />
-            </Box>
+        <Box sx={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 1
+        }}>
+          <Box sx={{ 
+            position: 'absolute',
+            top: 10,
+            left: 160,
+            background: alpha(theme.palette.info.main, 0.1),
+            border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+            borderRadius: 1,
+            px: 1.5,
+            py: 0.75,
+            zIndex: 10
+          }}>
+            <Typography sx={{ fontSize: '0.75rem', color: 'info.main' }}>
+              🔍 Scroll to zoom | Drag to pan
+            </Typography>
+          </Box>
+          
+          <Button
+            onClick={resetZoom}
+            size="small"
+            variant="outlined"
+            sx={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              fontSize: '0.7rem',
+              padding: '4px 8px',
+              zIndex: 10
+            }}
+          >
+            Reset Zoom
+          </Button>
 
-            <Box sx={{ mb: 3 }}>
-              <Typography gutterBottom>
-                Min Points: {params.minPoints}
-                <Typography component="span" variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>
-                  - Core point threshold
-                </Typography>
-              </Typography>
-              <Slider
-                value={params.minPoints}
-                onChange={(_, value) => setParams({ ...params, minPoints: value })}
-                min={2}
-                max={10}
-                marks
-                disabled={isRunning}
-                sx={{
-                  '& .MuiSlider-thumb': {
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.1)',
-                    },
-                  },
-                }}
-              />
-            </Box>
-
-            <Box sx={{ mb: 3 }}>
-              <Typography gutterBottom>
-                Number of Points: {params.points}
-                <Typography component="span" variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>
-                  - Dataset size
-                </Typography>
-              </Typography>
-              <Slider
-                value={params.points}
-                onChange={(_, value) => setParams({ ...params, points: value })}
-                min={50}
-                max={500}
-                step={50}
-                disabled={isRunning}
-                sx={{
-                  '& .MuiSlider-thumb': {
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.1)',
-                    },
-                  },
-                }}
-              />
-            </Box>
-
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Animation Speed</InputLabel>
-              <Select
-                value={params.speed}
-                onChange={(e) => setParams({ ...params, speed: e.target.value })}
-                label="Animation Speed"
-              >
-                <MenuItem value={0.5}>Slow</MenuItem>
-                <MenuItem value={1}>Normal</MenuItem>
-                <MenuItem value={2}>Fast</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="contained"
-                startIcon={isRunning ? <PauseIcon /> : <PlayArrowIcon />}
-                onClick={isRunning ? handlePause : handleStart}
-                fullWidth
-                sx={{
-                  background: 'linear-gradient(45deg, #4ECDC4, #2E9B94)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 20px 0 rgba(0,0,0,0.2)',
-                  },
-                }}
-              >
-                {isRunning ? 'Pause' : 'Start'}
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<RestartAltIcon />}
-                onClick={handleReset}
-                fullWidth
-                sx={{
-                  borderColor: theme.palette.primary.main,
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 20px 0 rgba(0,0,0,0.1)',
-                  },
-                }}
-              >
-                Reset
-              </Button>
-            </Box>
-          </StyledPaper>
-
-          <StyledPaper sx={{ mt: 2 }}>
-            <Typography variant="h6" gutterBottom>Status</Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">Iteration</Typography>
-                <Typography variant="h5">{iteration}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">Clusters Found</Typography>
-                <Typography variant="h5">{dbscanState.cluster}</Typography>
-              </Grid>
-            </Grid>
-          </StyledPaper>
-
-          <StyledPaper sx={{ mt: 2, p: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>Legend</Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: theme.palette.grey[400] }} />
-                <Typography variant="body2">Unvisited Points</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: theme.palette.grey[900] }} />
-                <Typography variant="body2">Noise Points</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: theme.palette.warning.main }} />
-                <Typography variant="body2">Current Point</Typography>
-              </Box>
-            </Box>
-          </StyledPaper>
-        </Grid>
-
-        <Grid item xs={12} md={9}>
-          <StyledPaper>
-            <svg
-              ref={svgRef}
-              style={{
-                width: '100%',
-                height: '600px',
-                background: alpha(theme.palette.background.default, 0.8),
-                borderRadius: theme.spacing(2),
-              }}
-            />
-          </StyledPaper>
-        </Grid>
-      </Grid>
+          <svg
+            ref={svgRef}
+            style={{
+              width: '100%',
+              height: '100%',
+              background: alpha(theme.palette.background.default, 0.5),
+              transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+              transformOrigin: 'center',
+              transition: isDragging ? 'none' : 'transform 0.1s',
+              cursor: 'inherit'
+            }}
+          />
+        </Box>
+      </Box>
     </Box>
   );
 };

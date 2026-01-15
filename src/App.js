@@ -88,11 +88,13 @@ function App() {
       <CssBaseline />
       <Router>
         <Box sx={{ 
-          minHeight: '100vh',
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
           background: 'linear-gradient(135deg, #0A0A0B 0%, #1A1B1E 100%)',
         }}>
           <Navbar />
-          <Box sx={{ pt: 8 }}>
+          <Box sx={{ flex: 1, overflow: 'hidden' }}>
             <AnimatePresence mode="wait">
               <Routes>
                 <Route path="/" element={<Home />} />

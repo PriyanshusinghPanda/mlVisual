@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Box,
-  Container,
   Tabs,
   Tab,
   Paper,
@@ -14,8 +13,6 @@ import DBSCAN from '../components/DBSCAN';
 import LinearRegression from '../components/LinearRegression';
 import { motion } from 'framer-motion';
 
-const MotionContainer = motion(Container);
-
 const Visualizations = () => {
   const [tab, setTab] = useState(0);
   const theme = useTheme();
@@ -24,76 +21,105 @@ const Visualizations = () => {
 
   return (
     <Box sx={{
-      minHeight: '100vh',
+      height: 'calc(100vh - 64px)',
       background: 'linear-gradient(135deg, #0A0A0B 0%, #1A1B1E 100%)',
-      pt: 4,
-      pb: 4
+      display: 'flex',
+      flexDirection: 'column',
+      width: '100%'
     }}>
-      <MotionContainer
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Paper 
-          elevation={0}
+      <Box sx={{
+        background: alpha(theme.palette.background.paper, 0.8),
+        backdropFilter: 'blur(10px)',
+        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        borderBottomWidth: 2,
+        width: '100%',
+        minHeight: '56px',
+        display: 'flex',
+        alignItems: 'center',
+        overflowX: 'auto',
+        overflowY: 'hidden'
+      }}>
+        <Tabs 
+          value={tab} 
+          onChange={handleTabChange}
           sx={{
-            background: alpha(theme.palette.background.paper, 0.8),
-            backdropFilter: 'blur(10px)',
-            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-            borderRadius: 2
+            minHeight: '56px',
+            width: '100%',
+            '& .MuiTabs-indicator': {
+              background: 'linear-gradient(45deg, #4ECDC4, #FF6B6B)',
+              height: 3,
+              bottom: 0
+            },
+            '& .MuiTab-root': {
+              color: '#888',
+              fontSize: '0.95rem',
+              padding: '12px 24px',
+              minHeight: '56px',
+              textTransform: 'none',
+              fontWeight: 500,
+              border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+              borderRadius: '8px 8px 0 0',
+              marginRight: '4px',
+              transition: 'all 0.2s ease',
+              flex: '0 0 auto',
+              '&:hover': {
+                color: '#fff',
+                borderColor: alpha(theme.palette.primary.main, 0.5),
+                backgroundColor: alpha(theme.palette.primary.main, 0.05)
+              },
+              '&.Mui-selected': {
+                color: '#fff',
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                borderColor: alpha(theme.palette.primary.main, 0.5)
+              },
+            }
           }}
         >
-          <Tabs 
-            value={tab} 
-            onChange={handleTabChange} 
-            centered
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{
-              '& .MuiTabs-indicator': {
-                background: 'linear-gradient(45deg, #4ECDC4, #FF6B6B)',
-              },
-              '& .MuiTab-root': {
-                color: 'text.secondary',
-                '&.Mui-selected': {
-                  color: 'text.primary',
-                },
-              },
-            }}
-          >
-            <Tab label="K-Means" />
-            <Tab label="DBSCAN" />
-            <Tab label="Linear Regression" />
-            <Tab label="Model Architecture" />
-          </Tabs>
+          <Tab label="K-Means" />
+          <Tab label="DBSCAN" />
+          <Tab label="Linear Regression" />
+          <Tab label="Model Architecture" />
+        </Tabs>
+      </Box>
 
-          <Box sx={{ mt: 2 }}>
-            {tab === 0 && <KMeans />}
-            {tab === 1 && <DBSCAN />}
-            {tab === 2 && <LinearRegression />}
-            {tab === 3 && (
-              <Box sx={{ textAlign: 'center', p: 4 }}>
-                <Typography
-                  variant="h5"
-                  sx={{
-                    background: 'linear-gradient(45deg, #4ECDC4, #FF6B6B)',
-                    backgroundClip: 'text',
-                    WebkitBackgroundClip: 'text',
-                    color: 'transparent',
-                    fontWeight: 'bold',
-                    mb: 2
-                  }}
-                >
-                  Coming Soon
-                </Typography>
-                <Typography color="text.secondary">
-                  We're working on an interactive neural network architecture visualizer.
-                </Typography>
-              </Box>
-            )}
+      <Box sx={{ 
+        flex: 1, 
+        display: 'flex', 
+        width: '100%',
+        overflow: 'hidden'
+      }}>
+        {tab === 0 && <KMeans />}
+        {tab === 1 && <DBSCAN />}
+        {tab === 2 && <LinearRegression />}
+        {tab === 3 && (
+          <Box sx={{ 
+            width: '100%',
+            height: '100%',
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center'
+          }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography
+                variant="h5"
+                sx={{
+                  background: 'linear-gradient(45deg, #4ECDC4, #FF6B6B)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  color: 'transparent',
+                  fontWeight: 'bold',
+                  mb: 2
+                }}
+              >
+                Coming Soon
+              </Typography>
+              <Typography color="text.secondary">
+                We're working on an interactive neural network architecture visualizer.
+              </Typography>
+            </Box>
           </Box>
-        </Paper>
-      </MotionContainer>
+        )}
+      </Box>
     </Box>
   );
 };

@@ -5,8 +5,6 @@ import {
   Typography,
   Button,
   Paper,
-  FormControl,
-  Grid,
   styled,
   useTheme,
   alpha
@@ -42,6 +40,11 @@ const LinearRegression = () => {
   });
   const [data, setData] = useState([]);
   const [regression, setRegression] = useState(null);
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [panelWidth, setPanelWidth] = useState(140);
+  const [isResizing, setIsResizing] = useState(false);
   const svgRef = useRef();
 
   const generateData = () => {
@@ -75,14 +78,20 @@ const LinearRegression = () => {
   }, [params.points, params.noise]);
 
   useEffect(() => {
-    if (!data.length || !regression) return;
+    if (!data.length || !regression || !svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    const margin = { top: 20, right: 20, bottom: 30, left: 40 };
-    const width = 800 - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
+    const svgElement = svgRef.current;
+    const width = svgElement.clientWidth || 800;
+    const height = svgElement.clientHeight || 600;
+
+    if (width <= 0 || height <= 0) return;
+
+    const margin = { top: 20, right: 20, bottom: 40, left: 50 };
+    const chartWidth = width - margin.left - margin.right;
+    const chartHeight = height - margin.top - margin.bottom;
 
     const g = svg
       .append("g")
@@ -90,15 +99,15 @@ const LinearRegression = () => {
 
     const x = d3.scaleLinear()
       .domain([0, d3.max(data, d => d.x)])
-      .range([0, width]);
+      .range([0, chartWidth]);
 
     const y = d3.scaleLinear()
       .domain([d3.min(data, d => d.y) - 10, d3.max(data, d => d.y) + 10])
-      .range([height, 0]);
+      .range([chartHeight, 0]);
 
     // Add the x-axis
     g.append("g")
-      .attr("transform", `translate(0,${height})`)
+      .attr("transform", `translate(0,${chartHeight})`)
       .call(d3.axisBottom(x))
       .style("color", theme.palette.text.secondary);
 
@@ -135,119 +144,244 @@ const LinearRegression = () => {
     // Add equation text
     const equation = `y = ${regression.slope.toFixed(2)}x + ${regression.intercept.toFixed(2)}`;
     g.append("text")
-      .attr("x", width - 200)
+      .attr("x", chartWidth - 200)
       .attr("y", 30)
       .style("fill", theme.palette.text.primary)
       .text(equation);
 
   }, [data, regression, theme]);
 
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setTransform(prev => ({
+      ...prev,
+      scale: Math.max(0.5, Math.min(5, prev.scale * delta))
+    }));
+  };
+
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+    setTransform(prev => ({
+      ...prev,
+      x: prev.x + deltaX,
+      y: prev.y + deltaY
+    }));
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const resetZoom = () => {
+    setTransform({ x: 0, y: 0, scale: 1 });
+  };
+
+  const handleResizeStart = () => {
+    setIsResizing(true);
+  };
+
+  const handleResizeMove = (e) => {
+    if (!isResizing) return;
+    const newWidth = Math.max(100, Math.min(400, e.clientX));
+    setPanelWidth(newWidth);
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+  };
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleResizeMove);
+        window.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing]);
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom sx={{ 
-        background: 'linear-gradient(45deg, #FF6B6B, #4ECDC4)',
-        backgroundClip: 'text',
-        WebkitBackgroundClip: 'text',
-        color: 'transparent',
-        fontWeight: 'bold'
+    <Box sx={{ 
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'row',
+      gap: 0
+    }}>
+      {/* Left Panel - Parameters */}
+      <Box sx={{ 
+        width: `${panelWidth}px`,
+        flexShrink: 0,
+        background: alpha(theme.palette.background.paper, 0.6),
+        backdropFilter: 'blur(10px)',
+        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        borderRadius: 0,
+        overflow: 'auto',
+        p: 1.5,
+        position: 'relative'
       }}>
-        Linear Regression Visualization
-      </Typography>
-      
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={3}>
-          <StyledPaper>
-            <Typography gutterBottom variant="h6" sx={{ mb: 3 }}>
-              Parameters
-            </Typography>
-            
-            <Box sx={{ mb: 4 }}>
-              <Typography gutterBottom>
-                Number of Points: {params.points}
+        <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', mb: 1.5 }}>
+          Parameters
+        </Typography>
+        
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+            Points: {params.points}
+          </Typography>
+          <Slider
+            value={params.points}
+            onChange={(_, value) => setParams({ ...params, points: value })}
+            min={10}
+            max={200}
+            step={10}
+            size="small"
+            sx={{ '& .MuiSlider-thumb': { width: 16, height: 16 } }}
+          />
+        </Box>
+
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+            Noise: {params.noise}
+          </Typography>
+          <Slider
+            value={params.noise}
+            onChange={(_, value) => setParams({ ...params, noise: value })}
+            min={0}
+            max={50}
+            size="small"
+            sx={{ '& .MuiSlider-thumb': { width: 16, height: 16 } }}
+          />
+        </Box>
+
+        <Button
+          variant="contained"
+          startIcon={<RestartAltIcon />}
+          onClick={generateData}
+          fullWidth
+          size="small"
+          sx={{ fontSize: '0.7rem', padding: '4px', mb: 1.5 }}
+        >
+          Generate
+        </Button>
+
+        <Box sx={{
+          p: 1,
+          borderRadius: 1,
+          bgcolor: alpha(theme.palette.primary.main, 0.1),
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
+        }}>
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mb: 0.5 }}>Stats</Typography>
+          {regression && (
+            <>
+              <Typography sx={{ fontSize: '0.65rem', mb: 0.25 }}>
+                m: {regression.slope.toFixed(3)}
               </Typography>
-              <Slider
-                value={params.points}
-                onChange={(_, value) => setParams({ ...params, points: value })}
-                min={10}
-                max={200}
-                step={10}
-                sx={{
-                  '& .MuiSlider-thumb': {
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.1)',
-                    },
-                  },
-                }}
-              />
-            </Box>
-
-            <Box sx={{ mb: 4 }}>
-              <Typography gutterBottom>
-                Noise Level: {params.noise}
+              <Typography sx={{ fontSize: '0.65rem', mb: 0.25 }}>
+                b: {regression.intercept.toFixed(3)}
               </Typography>
-              <Slider
-                value={params.noise}
-                onChange={(_, value) => setParams({ ...params, noise: value })}
-                min={0}
-                max={50}
-                sx={{
-                  '& .MuiSlider-thumb': {
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.1)',
-                    },
-                  },
-                }}
-              />
-            </Box>
+              <Typography sx={{ fontSize: '0.65rem' }}>
+                R²: {regression.score(data.map(p => p.x), data.map(p => p.y)).toFixed(3)}
+              </Typography>
+            </>
+          )}
+        </Box>
+      </Box>
 
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <StyledButton
-                variant="contained"
-                startIcon={<RestartAltIcon />}
-                onClick={generateData}
-                fullWidth
-              >
-                Generate New Data
-              </StyledButton>
-            </Box>
-          </StyledPaper>
+      {/* Resizer Divider */}
+      <Box
+        onMouseDown={handleResizeStart}
+        sx={{
+          width: '4px',
+          cursor: 'col-resize',
+          backgroundColor: alpha(theme.palette.divider, 0.3),
+          '&:hover': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.5),
+          },
+          transition: isResizing ? 'none' : 'background-color 0.2s',
+          flexShrink: 0
+        }}
+      />
 
-          <StyledPaper sx={{ mt: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Statistics
+      {/* Right Panel - Visualization */}
+      <Box 
+        sx={{ 
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'relative',
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        <Box sx={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 1
+        }}>
+          <Box sx={{ 
+            position: 'absolute',
+            top: 10,
+            left: 160,
+            background: alpha(theme.palette.info.main, 0.1),
+            border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+            borderRadius: 1,
+            px: 1.5,
+            py: 0.75,
+            zIndex: 10
+          }}>
+            <Typography sx={{ fontSize: '0.75rem', color: 'info.main' }}>
+              🔍 Scroll to zoom | Drag to pan
             </Typography>
-            {regression && (
-              <>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  Slope: {regression.slope.toFixed(4)}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  Intercept: {regression.intercept.toFixed(4)}
-                </Typography>
-                <Typography variant="body2">
-                  R²: {regression.score(data.map(p => p.x), data.map(p => p.y)).toFixed(4)}
-                </Typography>
-              </>
-            )}
-          </StyledPaper>
-        </Grid>
+          </Box>
+          
+          <Button
+            onClick={resetZoom}
+            size="small"
+            variant="outlined"
+            sx={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              fontSize: '0.7rem',
+              padding: '4px 8px',
+              zIndex: 10
+            }}
+          >
+            Reset Zoom
+          </Button>
 
-        <Grid item xs={12} md={9}>
-          <StyledPaper>
-            <svg
-              ref={svgRef}
-              style={{
-                width: '100%',
-                height: '600px',
-                background: alpha(theme.palette.background.default, 0.8),
-                borderRadius: theme.spacing(2),
-              }}
-            />
-          </StyledPaper>
-        </Grid>
-      </Grid>
+          <svg
+            ref={svgRef}
+            style={{
+              width: '100%',
+              height: '100%',
+              background: alpha(theme.palette.background.default, 0.5),
+              transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+              transformOrigin: 'center',
+              transition: isDragging ? 'none' : 'transform 0.1s',
+              cursor: 'inherit'
+            }}
+          />
+        </Box>
+      </Box>
     </Box>
   );
 };
