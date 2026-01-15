@@ -26,25 +26,25 @@ const algorithms = [
     title: 'K-Means Clustering',
     description: 'Interactive visualization of the K-means clustering algorithm with adjustable parameters.',
     icon: <BubbleChartIcon sx={{ fontSize: 40 }} />,
-    path: '/visualizations'
+    path: '/visualizations?tab=0'
   },
   {
     title: 'DBSCAN',
     description: 'Density-based spatial clustering with animated cluster formation and expansion.',
     icon: <SchemaIcon sx={{ fontSize: 40 }} />,
-    path: '/visualizations'
+    path: '/visualizations?tab=1'
   },
   {
     title: 'Linear Regression',
     description: 'Visual representation of linear regression with adjustable noise and data points.',
     icon: <TrendingUpIcon sx={{ fontSize: 40 }} />,
-    path: '/visualizations'
+    path: '/visualizations?tab=2'
   },
   {
     title: 'Model Architecture',
     description: 'Interactive neural network architecture visualization (Coming Soon).',
     icon: <TimelineIcon sx={{ fontSize: 40 }} />,
-    path: '/visualizations'
+    path: '/visualizations?tab=3'
   }
 ];
 

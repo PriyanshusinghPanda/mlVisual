@@ -16,6 +16,8 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import EditIcon from '@mui/icons-material/Edit';
+import GestureIcon from '@mui/icons-material/Gesture';
 import * as d3 from 'd3';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
@@ -30,9 +32,12 @@ const KMeans = () => {
   const [params, setParams] = useState({
     k: 3,
     points: 100,
-    speed: 1
+    speed: 1,
+    shape: 'blobs',
+    brushSize: 20
   });
   const [isRunning, setIsRunning] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [iteration, setIteration] = useState(0);
   const svgRef = useRef();
   const animationRef = useRef();
@@ -46,11 +51,20 @@ const KMeans = () => {
 
   // Generate random data points
   const generateData = () => {
-    const newData = Array.from({ length: params.points }, () => ({
-      x: Math.random() * 800,
-      y: Math.random() * 400,
-      cluster: null
-    }));
+    let newData = [];
+    switch (params.shape) {
+      case 'circles':
+        newData = generateCircles();
+        break;
+      case 'moons':
+        newData = generateMoons();
+        break;
+      case 'blobs':
+      default:
+        newData = generateBlobs();
+        break;
+    }
+    
     setData(newData);
     
     // Generate initial random centroids
@@ -62,10 +76,74 @@ const KMeans = () => {
     setIteration(0);
   };
 
+  const generateBlobs = () => {
+     return Array.from({ length: params.points }, () => ({
+      x: Math.random() * 800,
+      y: Math.random() * 400,
+      cluster: null
+    }));
+  };
+
+  const generateCircles = () => {
+    const newData = [];
+    const pointsPerCircle = Math.floor(params.points / 2);
+    
+    // Inner circle
+    for (let i = 0; i < pointsPerCircle; i++) {
+      const angle = (i / pointsPerCircle) * 2 * Math.PI;
+      const r = 80 + (Math.random() - 0.5) * 20;
+      newData.push({
+        x: 400 + r * Math.cos(angle),
+        y: 200 + r * Math.sin(angle),
+        cluster: null
+      });
+    }
+
+    // Outer circle
+    for (let i = 0; i < params.points - pointsPerCircle; i++) {
+      const angle = (i / (params.points - pointsPerCircle)) * 2 * Math.PI;
+      const r = 180 + (Math.random() - 0.5) * 20;
+      newData.push({
+        x: 400 + r * Math.cos(angle),
+        y: 200 + r * Math.sin(angle),
+        cluster: null
+      });
+    }
+    return newData;
+  };
+
+  const generateMoons = () => {
+    const newData = [];
+    const pointsPerMoon = Math.floor(params.points / 2);
+    
+    // Top moon
+    for (let i = 0; i < pointsPerMoon; i++) {
+      const angle = (i / pointsPerMoon) * Math.PI;
+      const r = 100 + (Math.random() - 0.5) * 20;
+      newData.push({
+        x: 300 + r * Math.cos(angle),
+        y: 200 - r * Math.sin(angle),
+        cluster: null
+      });
+    }
+
+    // Bottom moon
+    for (let i = 0; i < params.points - pointsPerMoon; i++) {
+      const angle = (i / (params.points - pointsPerMoon)) * Math.PI;
+      const r = 100 + (Math.random() - 0.5) * 20;
+      newData.push({
+        x: 500 + r * Math.cos(angle), // Moved right +200
+        y: 200 + r * Math.sin(angle) - 50, // Moved down and adjusted overlap
+        cluster: null
+      });
+    }
+    return newData;
+  };
+
   // Initialize visualization
   useEffect(() => {
     generateData();
-  }, [params.points, params.k]);
+  }, [params.points, params.k, params.shape]);
 
   // D3 visualization setup
   useEffect(() => {
@@ -215,13 +293,64 @@ const KMeans = () => {
     }));
   };
 
+  const addPointsAt = (clientX, clientY) => {
+    const rect = svgRef.current.getBoundingClientRect();
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
+
+    const canvasX = (clickX - transform.x) / transform.scale;
+    const canvasY = (clickY - transform.y) / transform.scale;
+
+    const svgElement = svgRef.current;
+    const width = svgElement.clientWidth || 800;
+    const height = svgElement.clientHeight || 600;
+    const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+    const chartWidth = width - margin.left - margin.right;
+    const chartHeight = height - margin.top - margin.bottom;
+
+    const xScale = d3.scaleLinear().domain([0, 800]).range([margin.left, margin.left + chartWidth]);
+    const yScale = d3.scaleLinear().domain([0, 400]).range([margin.top + chartHeight, margin.top]);
+
+    const pointsToAdd = [];
+    const density = Math.max(1, Math.floor(params.brushSize / 5));
+    
+    for (let i = 0; i < density; i++) {
+        const r = (Math.random() * params.brushSize) / transform.scale; 
+        const theta = Math.random() * 2 * Math.PI;
+        const offsetX = r * Math.cos(theta);
+        const offsetY = r * Math.sin(theta);
+        
+        const dataX = xScale.invert(canvasX + offsetX);
+        const dataY = yScale.invert(canvasY + offsetY);
+
+        pointsToAdd.push({
+            x: dataX,
+            y: dataY,
+            cluster: null
+        });
+    }
+
+    setData(prev => [...prev, ...pointsToAdd]);
+  };
+
   const handleMouseDown = (e) => {
+    if (isDrawing) {
+       addPointsAt(e.clientX, e.clientY);
+       setIsDragging(true);
+       return;
+    }
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseMove = (e) => {
     if (!isDragging) return;
+    
+    if (isDrawing) {
+        addPointsAt(e.clientX, e.clientY);
+        return;
+    }
+
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
     setTransform(prev => ({
@@ -322,18 +451,34 @@ const KMeans = () => {
         </Box>
 
         <FormControl fullWidth sx={{ mb: 1.5 }}>
-          <InputLabel sx={{ fontSize: '0.75rem' }}>Speed</InputLabel>
+          <InputLabel sx={{ fontSize: '0.75rem' }}>Shape</InputLabel>
           <Select
-            value={params.speed}
-            onChange={(e) => setParams({ ...params, speed: e.target.value })}
-            label="Speed"
+            value={params.shape}
+            onChange={(e) => setParams({ ...params, shape: e.target.value })}
+            label="Shape"
             size="small"
+            disabled={isRunning}
           >
-            <MenuItem value={0.5}>Slow</MenuItem>
-            <MenuItem value={1}>Normal</MenuItem>
-            <MenuItem value={2}>Fast</MenuItem>
+            <MenuItem value="blobs">Blobs</MenuItem>
+            <MenuItem value="circles">Circles</MenuItem>
+            <MenuItem value="moons">Moons</MenuItem>
           </Select>
         </FormControl>
+
+        <Box sx={{ mb: 1.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+            Speed: {params.speed}x
+          </Typography>
+          <Slider
+            value={params.speed}
+            onChange={(_, value) => setParams({ ...params, speed: value })}
+            min={0.1}
+            max={10}
+            step={0.1}
+            size="small"
+            sx={{ '& .MuiSlider-thumb': { width: 16, height: 16 } }}
+          />
+        </Box>
 
         <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5, flexDirection: 'column' }}>
           <Button
@@ -369,6 +514,30 @@ const KMeans = () => {
           >
             Reset Zoom
           </Button>
+          <Button
+            variant={isDrawing ? "contained" : "outlined"}
+            color={isDrawing ? "warning" : "primary"}
+            startIcon={<EditIcon />}
+            onClick={() => setIsDrawing(!isDrawing)}
+            fullWidth
+            size="small"
+            sx={{ fontSize: '0.7rem', padding: '4px', mt: 0.5 }}
+          >
+            {isDrawing ? 'Drawing On' : 'Draw Points'}
+          </Button>
+
+          {isDrawing && (
+            <Box sx={{ mt: 1, px: 1, borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`, pt: 1 }}>
+                <Typography sx={{ fontSize: '0.65rem' }}>Brush Size: {params.brushSize}</Typography>
+                <Slider 
+                    value={params.brushSize}
+                    onChange={(_, v) => setParams({...params, brushSize: v})}
+                    min={5}
+                    max={50}
+                    size="small"
+                />
+            </Box>
+          )}
         </Box>
 
         <Box sx={{
@@ -409,7 +578,7 @@ const KMeans = () => {
           flex: 1,
           display: 'flex',
           overflow: 'hidden',
-          cursor: isDragging ? 'grabbing' : 'grab'
+          cursor: isDrawing ? 'crosshair' : (isDragging ? 'grabbing' : 'grab')
         }}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}

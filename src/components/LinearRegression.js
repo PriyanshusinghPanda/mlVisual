@@ -290,7 +290,7 @@ const LinearRegression = () => {
                 b: {regression.intercept.toFixed(3)}
               </Typography>
               <Typography sx={{ fontSize: '0.65rem' }}>
-                R²: {regression.score(data.map(p => p.x), data.map(p => p.y)).toFixed(3)}
+                R²: {regression.score(data.map(p => p.x), data.map(p => p.y)).r2.toFixed(3)}
               </Typography>
             </>
           )}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Tabs,
@@ -12,16 +12,27 @@ import KMeans from '../components/KMeans';
 import DBSCAN from '../components/DBSCAN';
 import LinearRegression from '../components/LinearRegression';
 import { motion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 
 const Visualizations = () => {
+  const location = useLocation();
   const [tab, setTab] = useState(0);
   const theme = useTheme();
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    if (tabParam !== null) {
+      setTab(parseInt(tabParam, 10));
+    }
+  }, [location.search]);
 
   const handleTabChange = (_, newValue) => setTab(newValue);
 
   return (
     <Box sx={{
       height: 'calc(100vh - 64px)',
+      marginTop: '64px',
       background: 'linear-gradient(135deg, #0A0A0B 0%, #1A1B1E 100%)',
       display: 'flex',
       flexDirection: 'column',
