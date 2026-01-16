@@ -221,11 +221,18 @@ const DBSCAN = () => {
     generateData();
   }, [params.points, params.shape]);
 
-  // DBSCAN algorithm functions
-  const getNeighbors = (point, data) => {
-    return data.filter(p => 
-      Math.sqrt(Math.pow(p.x - point.x, 2) + Math.pow(p.y - point.y, 2)) <= params.epsilon
+  // Precompute neighbors when data or epsilon changes
+  useEffect(() => {
+    if (data.length === 0) return;
+    neighborsRef.current = data.map(p => 
+      data.map(q => dist(p, q) <= params.epsilon)
     );
+  }, [data, params.epsilon]);
+
+  // DBSCAN algorithm functions
+  // Optimization: uses precomputed boolean matrix
+  const getNeighbors = (index) => {
+    return data.filter((_, i) => neighborsRef.current[index][i]);
   };
 
   const algorithmStep = () => {
@@ -268,7 +275,8 @@ const DBSCAN = () => {
       const point = newData[state.index];
       point.visited = true; // Mark as visited
       
-      const neighbors = getNeighbors(point, newData);
+      point.visited = true; // Mark as visited
+      const neighbors = getNeighbors(state.index);
       
       if (neighbors.length < params.minPoints) {
         // Mark as Noise
