@@ -79,7 +79,7 @@ const Home = () => {
                   color: 'transparent',
                 }}
               >
-                AI Model Visualizer
+                ML Model Visualizer
               </Typography>
               <Typography 
                 variant="h5" 

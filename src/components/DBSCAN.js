@@ -44,6 +44,7 @@ const DBSCAN = () => {
   const svgRef = useRef();
   const animationRef = useRef();
   const [data, setData] = useState([]);
+  const neighborsRef = useRef([]); // Optimization: Precompute neighbors
   const [currentPoint, setCurrentPoint] = useState(null);
   const [dbscanState, setDbscanState] = useState({
     index: 0,
@@ -275,11 +276,10 @@ const DBSCAN = () => {
       const point = newData[state.index];
       point.visited = true; // Mark as visited
       
-      point.visited = true; // Mark as visited
       const neighbors = getNeighbors(state.index);
       
       if (neighbors.length < params.minPoints) {
-        // Mark as Noise
+        // Mark as Noise (temporarily - might be claimed by a cluster later)
         point.cluster = -1; 
         state.phase = "FIND_UNVISITED";
         state.index += 1; // Move search forward
@@ -332,10 +332,13 @@ const DBSCAN = () => {
       setCurrentPoint(neighborPoint);
 
       // "If not visited..."
+      // If point was previously NOISE (-1), it is visited. We do NOT enter this block.
+      // This is correct: A noise point is not a core point, so we don't expand from it.
+      // It effectively becomes a Border Point of this cluster.
       if (!neighborPoint.visited) {
         neighborPoint.visited = true;
         
-        const neighborNeighbors = getNeighbors(neighborPoint, newData);
+        const neighborNeighbors = getNeighbors(neighborIndex);
         
         if (neighborNeighbors.length >= params.minPoints) {
           // "Include it in the same cluster" (already done when added to queue/cluster)
@@ -354,6 +357,7 @@ const DBSCAN = () => {
         }
       }
       
+      // Claim the point for the cluster if it was unassigned or Noise
       if (neighborPoint.cluster === null || neighborPoint.cluster === -1) {
           neighborPoint.cluster = state.cluster;
       }

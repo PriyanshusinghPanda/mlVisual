@@ -59,7 +59,7 @@ const Navbar = () => {
             flexGrow: 1
           }}
         >
-          AI Model Visualizer
+          ML Model Visualizer
         </GradientTypography>
         <Box>
           <NavButton
